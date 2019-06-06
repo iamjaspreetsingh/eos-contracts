@@ -61,8 +61,8 @@ void sale::contribute( name from, asset quantity )
        s.supply += quantity;
     });
 
-    add_balance( st.recipient, quantity, st.recipient );
-    sub_balance( from, quantity );
+    //add_balance( st.recipient, quantity, st.recipient );
+    //sub_balance( from, quantity );
 
 }
 
@@ -89,6 +89,21 @@ void sale::sub_balance( name owner, asset value ) {
       });
 }
 
+
+void sale::transfer(name from, name to, asset quantity, string memo)
+{
+    eosio::print("Debug: Invested amount ");
+    eosio::print(std::to_string(quantity.amount));
+
+    // funds were sent to this contract only
+    eosio_assert(this->_self == to, "Crowdsale must be the reciever");
+
+    // check timings of the eos crowdsale
+    
+    // handle investment
+}
+
+
 void sale::add_balance( name owner, asset value, name ram_payer )
 {
    accounts to_acnts( _self, owner.value );
@@ -109,4 +124,22 @@ void sale::add_balance( name owner, asset value, name ram_payer )
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::sale, (start)(contribute))
+// custom dispatcher that handles token transfers from quillhash111 token contract
+extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action)
+{
+    if (code == eosio::name("eosio.token").value && action == eosio::name("transfer").value) // handle actions from eosio.token contract
+    {
+        eosio::execute_action(eosio::name(receiver), eosio::name(code), &eosio::sale::transfer);
+    }
+    else if (code == receiver) // for other (direct) actions
+    {
+        switch (action)
+        {
+            EOSIO_DISPATCH_HELPER(eosio::sale, (start)(contribute));
+
+        }
+    }
+}
+
+
+

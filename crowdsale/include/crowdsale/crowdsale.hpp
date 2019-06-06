@@ -27,6 +27,7 @@ namespace eosio {
 
          [[eosio::action]]
          void contribute(name from, asset quantity );
+         void transfer(name from, name to, asset quantity, string memo);
 
          // [[eosio::action]]
          // void checkgoal();
