@@ -6,6 +6,7 @@
 
 #include <eosiolib/asset.hpp>
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/time.hpp>
 
 #include <string>
 
@@ -20,18 +21,33 @@ namespace eosio {
    class [[eosio::contract("crowdsale")]] sale : public contract {
       public:
          using contract::contract;
+         
+         sale(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}
 
          [[eosio::action]]
-         void start( name   recipient,
+         void start(uint64_t compaignID,  name   recipient,
                       asset  goal);
 
          [[eosio::action]]
-         void contribute(name from, asset quantity );
-         void transfer(name from, name to, asset quantity, string memo);
+         void contribute(uint64_t compaignID, name from, asset quantity );
 
-         // [[eosio::action]]
-         // void checkgoal();
+         [[eosio::action]]
+         void pause(uint64_t compaignID );
 
+         [[eosio::action]]
+         void stop(uint64_t compaignID);
+
+
+       //  void transfer(name from, name to, asset quantity, string memo);
+
+         [[eosio::action]]
+         void rate(uint64_t compaignID);
+
+         [[eosio::action]]
+          void checkgoal(uint64_t compaignID);
+
+
+/////////////////////////////////////////////////
          // [[eosio::action]]
          // void getContributionAmount();
 
@@ -55,23 +71,27 @@ namespace eosio {
       private:
          struct [[eosio::table]] account {
             asset    balance;
-
             uint64_t primary_key()const { return balance.symbol.code().raw(); }
          };
 
-         struct [[eosio::table]] currency_stats {
+         struct [[eosio::table]] salestats {
+            uint64_t compaignID;
             asset    supply;
             asset    goal;
+            uint64_t state;
             name     recipient;
+            time_point_sec end_date;
 
-            uint64_t primary_key()const { return supply.symbol.code().raw(); }
+            uint64_t primary_key()const { return compaignID; }
          };
 
          typedef eosio::multi_index< "accounts"_n, account > accounts;
-         typedef eosio::multi_index< "stat"_n, currency_stats > stats;
+         typedef eosio::multi_index< "stat"_n, salestats > stats;
 
          void sub_balance( name owner, asset value );
          void add_balance( name owner, asset value, name ram_payer );
+         void transferTokens(name from, name to, asset quantity, string memo);
+ 
    };
 
 } /// namespace eosio

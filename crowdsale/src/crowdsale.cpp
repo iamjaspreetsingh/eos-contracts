@@ -4,13 +4,18 @@
  */
 
 #include <crowdsale/crowdsale.hpp>
+// #include "src/eosio.token.cpp"
+const uint32_t seconds_in_one_day = 60 * 60 * 24;
+const uint32_t seconds_in_one_week = seconds_in_one_day * 7;
+const uint32_t seconds_in_one_year = seconds_in_one_day * 365;
+const uint32_t _rate = 1;
 
 namespace eosio {
 
-void sale::start( name recipient,
+void sale::start(uint64_t compaignID, name recipient,
                     asset  goal )
 {
-    require_auth( _self );
+    require_auth(_self);
 
     auto sym = goal.symbol;
     eosio_assert( sym.is_valid(), "invalid symbol name" );
@@ -21,21 +26,26 @@ void sale::start( name recipient,
     eosio_assert( goal.is_valid(), "invalid goal");
     eosio_assert( goal.amount > 0, "goal must be positive");
 
-    stats statstable( _self, sym.code().raw() );
+    stats statstable( _self, compaignID);
   //  auto existing = statstable.find( sym.code().raw() );
    // eosio_assert( existing == statstable.end(), "token with symbol already exists" );
 
     statstable.emplace( _self, [&]( auto& s ) {
+       s.compaignID = compaignID; 
        s.supply.symbol = goal.symbol;
+       s.goal.symbol = goal.symbol;
        s.goal = goal;
+       s.state=0;
        s.recipient = recipient;
+       s.end_date = time_point_sec(now() + 360);
+
     });
 }
 
 
-void sale::contribute( name from, asset quantity )
+void sale::contribute(uint64_t compaignID, name from, asset quantity )
 {
-    require_auth( from );
+    require_auth(from);
 
     auto sym = quantity.symbol;
     eosio_assert( sym.is_valid(), "invalid symbol name" );
@@ -43,16 +53,18 @@ void sale::contribute( name from, asset quantity )
 
     eosio_assert( sy==sym, "quantity must be in EOS" );
 
-    stats statstable( _self, sym.code().raw() );
-    auto existing = statstable.find( sym.code().raw() );
-    eosio_assert( existing != statstable.end(), "EOS symbol does not exist" );
+    stats statstable( _self, compaignID );
+    auto existing = statstable.find( compaignID );
+    eosio_assert( existing != statstable.end(), "Compaign ID does not exist" );
     const auto& st = *existing;
+
+    eosio_assert( st.state==0, "Crowdsale is paused/ finished" );
 
     eosio_assert( quantity.is_valid(), "invalid quantity" );
     eosio_assert( quantity.amount > 0, " quantity must be  positive" );
 
     eosio_assert( quantity.symbol == st.supply.symbol, "symbol EOS precision mismatch" );
-    eosio_assert( quantity.amount >= st.goal.amount - st.supply.amount, "quantity exceeds the goal");
+    eosio_assert( quantity.amount <= st.goal.amount - st.supply.amount, "quantity exceeds the goal");
 
    //check if recipient doesnot contribute if required
     eosio_assert( st.recipient!=from, "recipient cannot contribute" );
@@ -61,85 +73,64 @@ void sale::contribute( name from, asset quantity )
        s.supply += quantity;
     });
 
+   // transferTokens(from, get_self(), quantity, "crowdsaleTranfer");
+
     //add_balance( st.recipient, quantity, st.recipient );
     //sub_balance( from, quantity );
 
 }
 
-// void sale::checkgoal(asset sym)
-// {
-//    //  stats statstable( _self, sym );
-//    //  const auto& st = statstable.get( sym );
- 
-//    if(st.supply<st.goal)
-//       print("Goal not Reached");
-//    else    
-//       print("Goal Reached");
- 
-// }
 
-void sale::sub_balance( name owner, asset value ) {
-   accounts from_acnts( _self, owner.value );
+void sale::pause(uint64_t compaignID)
+{
+    require_auth(_self);
+    stats statstable( _self, compaignID );
+    auto existing = statstable.find( compaignID );
+    eosio_assert( existing != statstable.end(), "Compaign ID does not exist" );
+    const auto& st = *existing;
+    statstable.modify( st, same_payer, [&]( auto& s ) {
+       s.state = 1;
+    });
 
-   const auto& from = from_acnts.get( value.symbol.code().raw(), "no balance object found" );
-   eosio_assert( from.balance.amount >= value.amount, "overdrawn balance" );
-
-   from_acnts.modify( from, owner, [&]( auto& a ) {
-         a.balance -= value;
-      });
 }
 
-
-void sale::transfer(name from, name to, asset quantity, string memo)
+void sale::stop(uint64_t compaignID)
 {
-    eosio::print("Debug: Invested amount ");
-    eosio::print(std::to_string(quantity.amount));
-
-    // funds were sent to this contract only
-    eosio_assert(this->_self == to, "Crowdsale must be the reciever");
-
-    // check timings of the eos crowdsale
-    
-    // handle investment
+    require_auth(_self);
+    stats statstable( _self, compaignID );
+    auto existing = statstable.find( compaignID );
+    eosio_assert( existing != statstable.end(), "Compaign ID does not exist" );
+    const auto& st = *existing;
+    statstable.modify( st, same_payer, [&]( auto& s ) {
+       s.state = 2;
+    });
 }
 
-
-void sale::add_balance( name owner, asset value, name ram_payer )
+void sale::rate(uint64_t compaignID)
 {
-   accounts to_acnts( _self, owner.value );
-   auto to = to_acnts.find( value.symbol.code().raw() );
-   if( to == to_acnts.end() ) {
-      to_acnts.emplace( ram_payer, [&]( auto& a ){
-        a.balance = value;
-      });
-   } else {
-      to_acnts.modify( to, same_payer, [&]( auto& a ) {
-        a.balance += value;
-      });
-   }
+    eosio::print ("Rate of 1 token:");
+    eosio::print (_rate);
 }
 
-
-
-
-} /// namespace eosio
-
-// custom dispatcher that handles token transfers from quillhash111 token contract
-extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action)
+void sale::checkgoal(uint64_t compaignID)
 {
-    if (code == eosio::name("eosio.token").value && action == eosio::name("transfer").value) // handle actions from eosio.token contract
+    stats statstable( _self, compaignID );
+    auto existing = statstable.find( compaignID );
+    eosio_assert( existing != statstable.end(), "Compaign ID does not exist" );
+    const auto& st = *existing;
+   if(st.supply<st.goal)
     {
-        eosio::execute_action(eosio::name(receiver), eosio::name(code), &eosio::sale::transfer);
+        print("Goal not Reached:");
+        print(st.goal);
     }
-    else if (code == receiver) // for other (direct) actions
-    {
-        switch (action)
-        {
-            EOSIO_DISPATCH_HELPER(eosio::sale, (start)(contribute));
+   else    
+      print("Goal Reached");
 
-        }
-    }
 }
 
+
+
+}
+EOSIO_DISPATCH(eosio::sale, (start)(contribute)(pause)(stop)(rate)(checkgoal))
 
 

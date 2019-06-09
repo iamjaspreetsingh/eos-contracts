@@ -14,9 +14,23 @@
             ]
         },
         {
+            "name": "checkgoal",
+            "base": "",
+            "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
             "name": "contribute",
             "base": "",
             "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                },
                 {
                     "name": "from",
                     "type": "name"
@@ -28,9 +42,33 @@
             ]
         },
         {
-            "name": "currency_stats",
+            "name": "pause",
             "base": "",
             "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "rate",
+            "base": "",
+            "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "salestats",
+            "base": "",
+            "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                },
                 {
                     "name": "supply",
                     "type": "asset"
@@ -40,8 +78,16 @@
                     "type": "asset"
                 },
                 {
+                    "name": "state",
+                    "type": "uint64"
+                },
+                {
                     "name": "recipient",
                     "type": "name"
+                },
+                {
+                    "name": "end_date",
+                    "type": "time_point_sec"
                 }
             ]
         },
@@ -49,6 +95,10 @@
             "name": "start",
             "base": "",
             "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                },
                 {
                     "name": "recipient",
                     "type": "name"
@@ -58,17 +108,47 @@
                     "type": "asset"
                 }
             ]
+        },
+        {
+            "name": "stop",
+            "base": "",
+            "fields": [
+                {
+                    "name": "compaignID",
+                    "type": "uint64"
+                }
+            ]
         }
     ],
     "actions": [
+        {
+            "name": "checkgoal",
+            "type": "checkgoal",
+            "ricardian_contract": ""
+        },
         {
             "name": "contribute",
             "type": "contribute",
             "ricardian_contract": ""
         },
         {
+            "name": "pause",
+            "type": "pause",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "rate",
+            "type": "rate",
+            "ricardian_contract": ""
+        },
+        {
             "name": "start",
             "type": "start",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "stop",
+            "type": "stop",
             "ricardian_contract": ""
         }
     ],
@@ -82,7 +162,7 @@
         },
         {
             "name": "stat",
-            "type": "currency_stats",
+            "type": "salestats",
             "index_type": "i64",
             "key_names": [],
             "key_types": []
