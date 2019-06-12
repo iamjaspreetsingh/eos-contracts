@@ -31,7 +31,7 @@
             "base": "",
             "fields": [
                 {
-                    "name": "issuer",
+                    "name": "recipient",
                     "type": "name"
                 },
                 {

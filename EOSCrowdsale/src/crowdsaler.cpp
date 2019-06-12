@@ -24,14 +24,14 @@ crowdsaler::~crowdsaler()
 }
 
 // initialize the crowdfund
-void crowdsaler::init(eosio::name issuer, eosio::time_point_sec start, eosio::time_point_sec finish)
+void crowdsaler::init(eosio::name recipient, eosio::time_point_sec start, eosio::time_point_sec finish)
 {
     eosio_assert(!this->state_singleton.exists(), "Already Initialzed");
     eosio_assert(start < finish, "Start must be less than finish");
     require_auth(this->_self);
-    eosio_assert(issuer != this->_self,"Issuer should be different than contract deployer");
+    eosio_assert(recipient != this->_self,"Recipient should be different than contract deployer");
     // update state
-    this->state.issuer = issuer;
+    this->state.recipient = recipient;
     this->state.start = start;
     this->state.finish = finish;
     this->state.pause = UNPAUSE;
@@ -54,13 +54,13 @@ void crowdsaler::handle_investment(eosio::name investor, eosio::asset quantity)
     {
         if (it == this->deposits.end())
         {
-            this->deposits.emplace(this->_self, [investor, entire_eoses](auto &deposit) {
+            this->deposits.emplace(this->state.recipient, [investor, entire_eoses](auto &deposit) {
             deposit.account = investor;
             deposit.eoses = entire_eoses;});
         }
         else
         {
-            this->deposits.modify(it, this->_self, [investor, entire_eoses](auto &deposit) {
+            this->deposits.modify(it, this->state.recipient, [investor, entire_eoses](auto &deposit) {
             deposit.account = investor;
             deposit.eoses = entire_eoses;});
         }
@@ -126,7 +126,7 @@ void crowdsaler::transfer(eosio::name from, eosio::name to, eosio::asset quantit
 // unpause / pause contract
 void crowdsaler::pause()
 {
-    require_auth(this->state.issuer);
+    require_auth(this->state.recipient);
     if (state.pause==0)
         this->state.pause = PAUSE; 
     else
@@ -151,17 +151,17 @@ void crowdsaler::checkgoal()
         eosio::print("Goal Reached");
 }
 
-// used if contract deployer account is different than issuer 
+// used if contract deployer account is different than recipient 
 void crowdsaler::withdraw()
 {
-    require_auth(this->state.issuer);
+    require_auth(this->state.recipient);
  // NOTE: UNCOMMENT THESE
  //   eosio_assert(NOW >= this->state.finish.utc_seconds, "Crowdsale not ended yet" );
  //  eosio_assert(this->state.total_eoses >= SOFT_CAP_TKN, "Soft cap was not reached");
     eosio::asset all_eoses;
     all_eoses.amount = this->state.total_eoses;
     all_eoses.symbol = sy_eos;
-    this->inline_transfer(this->_self, this->state.issuer, all_eoses, "withdraw by issuer");
+    this->inline_transfer(this->_self, this->state.recipient, all_eoses, "withdraw by recipient");
     //  crowdsaler deposit of eos deleted from table (which equals to total eoses in state)
     this->state.total_eoses = 0;
     auto it = this->deposits.find(("crowdsaler"_n).value);

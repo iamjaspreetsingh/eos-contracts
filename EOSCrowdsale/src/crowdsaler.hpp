@@ -20,11 +20,11 @@ CONTRACT crowdsaler : public eosio::contract
     // destructor
     ~crowdsaler();
 
-    ACTION init(eosio::name issuer, eosio::time_point_sec start, eosio::time_point_sec finish); // initialize the crowdsale
+    ACTION init(eosio::name recipient, eosio::time_point_sec start, eosio::time_point_sec finish); // initialize the crowdsale
 
-    ACTION transfer(eosio::name from, eosio::name to, eosio::asset quantity, std::string memo); // redirect to invest
+    ACTION transfer(eosio::name from, eosio::name to, eosio::asset quantity, std::string memo); // redirect to handle_investment
 
-    ACTION withdraw(); // transfer tokens from the contract account to the issuer
+    ACTION withdraw(); // transfer tokens from the contract account to the recipient
 
     ACTION pause(); // for pause/ unpause contract
 
@@ -37,7 +37,7 @@ CONTRACT crowdsaler : public eosio::contract
     // type for defining state
     struct state_t
     {
-        eosio::name issuer;
+        eosio::name recipient;
         uint64_t total_eoses;
         uint64_t total_tokens;
         eosio::time_point_sec start;
@@ -47,7 +47,7 @@ CONTRACT crowdsaler : public eosio::contract
         // utility method for converting this object to string
         std::string toString()
         {
-            std::string str = " ISSUER " + this->issuer.to_string() +
+            std::string str = " RECIPIENT " + this->recipient.to_string() +
                               " PAUSED " + std::to_string(this->pause) +
                               " EOSES " + std::to_string(this->total_eoses) +
                               " TOKENS " + std::to_string(this->total_tokens) +

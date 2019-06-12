@@ -135,7 +135,7 @@ def test():
     contract.push_action(
         "init",
         {
-            "issuer": issuer,
+            "recipient": issuer,
             "start": "2019-02-01T00:00:00",
             "finish": "2020-04-20T00:00:00"
         },
