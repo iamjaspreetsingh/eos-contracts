@@ -75,6 +75,11 @@
                     "type": "string"
                 }
             ]
+        },
+        {
+            "name": "withdraw",
+            "base": "",
+            "fields": []
         }
     ],
     "actions": [
@@ -101,6 +106,11 @@
         {
             "name": "transfer",
             "type": "transfer",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "withdraw",
+            "type": "withdraw",
             "ricardian_contract": ""
         }
     ],

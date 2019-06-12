@@ -1,7 +1,8 @@
 #include "crowdsaler.hpp"
 
 #include "config.h"
-#include "pow10.hpp"
+
+const eosio::symbol sy_eos = eosio::symbol("EOS", 4);
 
 #define NOW now() // rename system func that returns time in seconds
 
@@ -28,12 +29,12 @@ void crowdsaler::init(eosio::name issuer, eosio::time_point_sec start, eosio::ti
     eosio_assert(!this->state_singleton.exists(), "Already Initialzed");
     eosio_assert(start < finish, "Start must be less than finish");
     require_auth(this->_self);
-
+    eosio_assert(issuer != this->_self,"Issuer should be different than contract deployer");
     // update state
     this->state.issuer = issuer;
     this->state.start = start;
     this->state.finish = finish;
-    this->state.pause = 0; // 0 -> unpause, 1 -> pause
+    this->state.pause = UNPAUSE;
 }
 
 // update contract balances and send tokens to the investor
@@ -46,25 +47,20 @@ void crowdsaler::handle_investment(eosio::name investor, eosio::asset quantity)
     int64_t tokens_to_give = (quantity.amount)/RATE;
 
     // if the depositor account was found, store his updated balances
-    int64_t entire_eoses = quantity.amount;
+    int64_t entire_eoses =  this->state.total_eoses;
     int64_t entire_tokens = tokens_to_give;
 
-    if (investor=="crowdsaler"_n)
+    if (investor == eosio::name("crowdsaler"))
     {
-        if (it != this->deposits.end())
-        {
-            entire_eoses += it->eoses;
-        }
-    // if the depositor was not found create a new entry in the database, else update his balance
         if (it == this->deposits.end())
         {
-            this->deposits.emplace(this->_self, [investor, entire_eoses, entire_tokens](auto &deposit) {
+            this->deposits.emplace(this->_self, [investor, entire_eoses](auto &deposit) {
             deposit.account = investor;
             deposit.eoses = entire_eoses;});
         }
         else
         {
-            this->deposits.modify(it, this->_self, [investor, entire_eoses, entire_tokens](auto &deposit) {
+            this->deposits.modify(it, this->_self, [investor, entire_eoses](auto &deposit) {
             deposit.account = investor;
             deposit.eoses = entire_eoses;});
         }
@@ -79,14 +75,14 @@ void crowdsaler::handle_investment(eosio::name investor, eosio::asset quantity)
         // if the depositor was not found create a new entry in the database, else update his balance
         if (it == this->deposits.end())
         {
-            this->deposits.emplace(this->_self, [investor, entire_eoses, entire_tokens](auto &deposit) {
+            this->deposits.emplace(this->_self, [investor, entire_tokens](auto &deposit) {
                 deposit.account = investor;
                 deposit.tokens = entire_tokens;
             });
         }
         else
         {
-            this->deposits.modify(it, this->_self, [investor, entire_eoses, entire_tokens](auto &deposit) {
+            this->deposits.modify(it, this->_self, [investor, entire_tokens](auto &deposit) {
                 deposit.account = investor;
                 deposit.tokens = entire_tokens;
             });
@@ -102,38 +98,39 @@ void crowdsaler::transfer(eosio::name from, eosio::name to, eosio::asset quantit
 {
 
     eosio_assert(this->state.pause==UNPAUSE, "Crowdsale has been paused" );
-
+    
     // check timings of the eos crowdsale
     eosio_assert(NOW >= this->state.start.utc_seconds, "Crowdsale hasn't started");
     eosio_assert(NOW <= this->state.finish.utc_seconds, "Crowdsale finished");
 
     // check the minimum and maximum contribution
     eosio_assert(quantity.amount >= MIN_CONTRIB, "Contribution too low");
-    eosio_assert((quantity.amount <= MAX_CONTRIB) /*|| !MAX_CONTRIB*/, "Contribution too high");
-
-    // calculate from EOS to tokens
-    int64_t tokens_to_give = (quantity.amount)/RATE;
-
-    // update total eos obtained and tokens distributed
-    this->state.total_eoses += quantity.amount;
-    this->state.total_tokens += tokens_to_give;
+    eosio_assert((quantity.amount <= MAX_CONTRIB) , "Contribution too high");
 
     // check if the hard cap was reached
     eosio_assert(this->state.total_tokens <= GOAL, "GOAL reached");
+    
+     // calculate from EOS to tokens
+    int64_t tokens_to_give = (quantity.amount)/RATE;
+
+    if(to == eosio::name("crowdsaler"))
+        this->state.total_eoses += quantity.amount;
+    else
+        this->state.total_tokens += tokens_to_give; // calculate from EOS to tokens
 
     // handle investment
     this->handle_investment(from, quantity);
 }
 
 
-// unpause /pause contract 0 -> unpause, 1 -> pause 
+// unpause / pause contract
 void crowdsaler::pause()
 {
     require_auth(this->state.issuer);
     if (state.pause==0)
-        this->state.pause = 1; 
+        this->state.pause = PAUSE; 
     else
-        this->state.pause = 0;
+        this->state.pause = UNPAUSE;
 }
 
 
@@ -154,30 +151,35 @@ void crowdsaler::checkgoal()
         eosio::print("Goal Reached");
 }
 
+// used if contract deployer account is different than issuer 
+void crowdsaler::withdraw()
+{
+    require_auth(this->state.issuer);
+ // NOTE: UNCOMMENT THESE
+ //   eosio_assert(NOW >= this->state.finish.utc_seconds, "Crowdsale not ended yet" );
+ //  eosio_assert(this->state.total_eoses >= SOFT_CAP_TKN, "Soft cap was not reached");
+    eosio::asset all_eoses;
+    all_eoses.amount = this->state.total_eoses;
+    all_eoses.symbol = sy_eos;
+    this->inline_transfer(this->_self, this->state.issuer, all_eoses, "withdraw by issuer");
+    //  crowdsaler deposit of eos deleted from table (which equals to total eoses in state)
+    this->state.total_eoses = 0;
+    auto it = this->deposits.find(("crowdsaler"_n).value);
+    this->deposits.erase(it);
+}
 
-// void crowdsaler::withdraw()
-// {
-//     // require_auth(this->state.issuer);
-
-//     // eosio_assert(NOW >= this->state.finish.utc_seconds, "Crowdsale not ended yet" );
-//     // eosio_assert(this->state.total_eoses >= SOFT_CAP_TKN, "Soft cap was not reached");
-
-//     // eosio::asset amount = eosio::asset()
-//     // this->inline_transfer(this->_self, this->state.issuer);
-// }
-
-// custom dispatcher that handles token transfers from quillhash111 token contract
+// custom dispatcher that handles QUI transfers from quilltoken contract
 extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action)
 {
     if (code == eosio::name("quilltoken").value && action == eosio::name("transfer").value) // handle actions from eosio.token contract
     {
         eosio::execute_action(eosio::name(receiver), eosio::name(code), &crowdsaler::transfer);
     }
-    else if (code == receiver) // for other (direct) actions
+    else if (code == receiver) // for other direct actions
     {
         switch (action)
         {
-            EOSIO_DISPATCH_HELPER(crowdsaler, (init)(transfer)(pause)(rate)(checkgoal));
+            EOSIO_DISPATCH_HELPER(crowdsaler, (init)(transfer)(pause)(rate)(checkgoal)(withdraw));
         }
     }
 }

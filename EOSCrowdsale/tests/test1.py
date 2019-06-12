@@ -23,6 +23,8 @@ def test():
     create_account("crowdsaler", eosio, account_name="crowdsaler")
     create_account("eosiotoken", eosio, account_name="quilltoken")
     create_account("bob", eosio, account_name="bob")
+    create_account("issuer", eosio, account_name="issuer")
+
 
     ########################################################################################################
     COMMENT('''
@@ -46,14 +48,14 @@ def test():
 
     ########################################################################################################
     COMMENT('''
-    Create SYS tokens 
+    Create EOS tokens 
     ''')
 
     token_contract.push_action(
         "create",
         {
             "issuer": eosio,
-            "maximum_supply": "1000000000.0000 SYS"
+            "maximum_supply": "1000000000.0000 EOS"
         },
         [eosiotoken]
     )
@@ -74,28 +76,28 @@ def test():
 
     ########################################################################################################
     COMMENT('''
-    Issue SYS tokens to alice 
+    Issue EOS tokens to alice 
     ''')
 
     token_contract.push_action(
         "issue",
         {
             "to": alice,
-            "quantity": "10000.0000 SYS",
+            "quantity": "10000.0000 EOS",
             "memo": "issued tokens to alice"
         },
         [eosio]
     )
 
     COMMENT('''
-    Issue SYS tokens to bob 
+    Issue EOS tokens to bob 
     ''')
 
     token_contract.push_action(
         "issue",
         {
             "to": bob,
-            "quantity": "10000.0000 SYS",
+            "quantity": "10000.0000 EOS",
             "memo": "issued tokens to bob"
         },
         [eosio]
@@ -110,7 +112,7 @@ def test():
         "issue",
         {
             "to": crowdsaler,
-            "quantity": "10000.0000 QUI",
+            "quantity": "20000.0000 QUI",
             "memo": "issued tokens to alice"
         },
         [crowdsaler]
@@ -138,7 +140,7 @@ def test():
     contract.push_action(
         "init",
         {
-            "issuer": crowdsaler,
+            "issuer": issuer,
             "start": "2019-02-01T00:00:00",
             "finish": "2020-04-20T00:00:00"
         },
@@ -183,8 +185,8 @@ def test():
         {
             "from": alice,
             "to": crowdsaler,
-            "quantity": "2500.0000 SYS",
-            "memo": "Invested 25 SYS in crowdsaler"
+            "quantity": "2500.0000 EOS",
+            "memo": "Invested 25 EOS in crowdsaler"
         },
         permission=(alice, Permission.ACTIVE)
     )
@@ -195,15 +197,34 @@ def test():
         {
             "from": bob,
             "to": crowdsaler,
-            "quantity": "2500.0000 SYS",
-            "memo": "Invested 25 SYS in crowdsaler"
+            "quantity": "2500.0000 EOS",
+            "memo": "Invested 25 EOS in crowdsaler"
         },
         permission=(bob, Permission.ACTIVE)
     )
 
 
+    ########################################################################################################
+
+    COMMENT('''
+    Check table of the crowdsaler contract 
+    ''')
+
+    crowdsaler.table("deposit", crowdsaler)
 
     ########################################################################################################
+
+
+    # withdraw EOS tokens 
+    crowdsaler.push_action(
+        "withdraw",
+         {},
+        permission=(issuer, Permission.ACTIVE)
+    )
+
+
+    ########################################################################################################
+
     COMMENT('''
     Check table of the crowdsaler contract 
     ''')

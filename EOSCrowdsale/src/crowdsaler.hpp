@@ -24,7 +24,7 @@ CONTRACT crowdsaler : public eosio::contract
 
     ACTION transfer(eosio::name from, eosio::name to, eosio::asset quantity, std::string memo); // redirect to invest
 
-    // ACTION withdraw(); // transfer tokens from the contract account to the issuer
+    ACTION withdraw(); // transfer tokens from the contract account to the issuer
 
     ACTION pause(); // for pause/ unpause contract
 
