@@ -14,6 +14,7 @@ def test():
     create_master_account("eosio")
 
     #######################################################################################################
+    
     COMMENT('''
     Create test accounts:
     ''')
@@ -27,6 +28,7 @@ def test():
 
 
     ########################################################################################################
+    
     COMMENT('''
     Build and deploy token contract:
     ''')
@@ -37,6 +39,7 @@ def test():
     token_contract.deploy()
 
     ########################################################################################################
+    
     COMMENT('''
     Build and deploy crowdsaler contract:
     ''')
@@ -47,6 +50,7 @@ def test():
     contract.deploy()
 
     ########################################################################################################
+    
     COMMENT('''
     Create EOS tokens 
     ''')
@@ -60,7 +64,8 @@ def test():
         [eosiotoken]
     )
 
-     ########################################################################################################
+    ########################################################################################################
+    
     COMMENT('''
     Create QUI tokens 
     ''')
@@ -75,6 +80,7 @@ def test():
     )
 
     ########################################################################################################
+
     COMMENT('''
     Issue EOS tokens to alice 
     ''')
@@ -104,6 +110,7 @@ def test():
     )
 
     ########################################################################################################
+
     COMMENT('''
     Issue QUI tokens to crowdsaler 
     ''')
@@ -118,21 +125,9 @@ def test():
         [crowdsaler]
     )
 
-    ########################################################################################################
-    # COMMENT('''
-    # Create QUILL tokens 
-    # ''')
-
-    # token_contract.push_action(
-    #     "create",
-    #     {
-    #         "issuer": issuer,
-    #         "maximum_supply": "1000000000.0000 QUILL"
-    #     },
-    #     [eosiotoken]
-    # )
 
     ########################################################################################################
+
     COMMENT('''
     Initialize the crowdsaler
     ''')
@@ -146,8 +141,24 @@ def test():
         },
         [crowdsaler]
     )
+    ########################################################################################################
+
+    crowdsaler.push_action(
+        "checkgoal",
+         {},
+        permission=(issuer, Permission.ACTIVE)
+    )
 
     ########################################################################################################
+
+    crowdsaler.push_action(
+        "rate",
+         {},
+        permission=(issuer, Permission.ACTIVE)
+    )
+
+    ########################################################################################################
+
     COMMENT('''
     Invest in the crowdsaler 
     ''')
@@ -212,27 +223,40 @@ def test():
 
     crowdsaler.table("deposit", crowdsaler)
 
+
+
+    COMMENT('''
+    Check tables of the quilltoken contract 
+    ''')
+
+    eosiotoken.table("stat", "QUI")
+    eosiotoken.table("stat", "EOS")
+
+    eosiotoken.table("accounts", alice)
+    eosiotoken.table("accounts", bob)
+    eosiotoken.table("accounts", crowdsaler)
+
     ########################################################################################################
 
-
-    # withdraw EOS tokens 
+    COMMENT('''
+    withdraw EOS from the crowdsaler contract 
+    ''')
     crowdsaler.push_action(
         "withdraw",
          {},
         permission=(issuer, Permission.ACTIVE)
     )
 
-
     ########################################################################################################
 
     COMMENT('''
-    Check table of the crowdsaler contract 
+    Check table of the crowdsaler and quilltoken contract after withdrawal
     ''')
 
     crowdsaler.table("deposit", crowdsaler)
+    eosiotoken.table("accounts", crowdsaler)
 
     stop()
-
 
 if __name__ == "__main__":
     test()
