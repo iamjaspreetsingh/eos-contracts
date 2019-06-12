@@ -1,0 +1,217 @@
+import sys
+from eosfactory.eosf import *
+verbosity([Verbosity.INFO, Verbosity.OUT, Verbosity.DEBUG])
+
+CONTRACT_WORKSPACE = sys.path[0] + "/../"
+TOKEN_CONTRACT_WORKSPACE = sys.path[0] + "/../../quilltoken/"
+
+
+def test():
+    SCENARIO('''
+    Execute simple actions.
+    ''')
+    reset()
+    create_master_account("eosio")
+
+    #######################################################################################################
+    COMMENT('''
+    Create test accounts:
+    ''')
+
+    # test accounts and accounts where the smart contracts will be hosted
+    create_account("alice", eosio, account_name="alice")
+    create_account("crowdsaler", eosio, account_name="crowdsaler")
+    create_account("eosiotoken", eosio, account_name="quilltoken")
+    create_account("bob", eosio, account_name="bob")
+
+    ########################################################################################################
+    COMMENT('''
+    Build and deploy token contract:
+    ''')
+
+    # creating token contract
+    token_contract = Contract(eosiotoken, TOKEN_CONTRACT_WORKSPACE)
+    token_contract.build(force=True)
+    token_contract.deploy()
+
+    ########################################################################################################
+    COMMENT('''
+    Build and deploy crowdsaler contract:
+    ''')
+
+    # creating crowdsaler contract
+    contract = Contract(crowdsaler, CONTRACT_WORKSPACE)
+    contract.build(force=True)
+    contract.deploy()
+
+    ########################################################################################################
+    COMMENT('''
+    Create SYS tokens 
+    ''')
+
+    token_contract.push_action(
+        "create",
+        {
+            "issuer": eosio,
+            "maximum_supply": "1000000000.0000 SYS"
+        },
+        [eosiotoken]
+    )
+
+     ########################################################################################################
+    COMMENT('''
+    Create QUI tokens 
+    ''')
+
+    token_contract.push_action(
+        "create",
+        {
+            "issuer": crowdsaler,
+            "maximum_supply": "1000000000.0000 QUI"
+        },
+        [eosiotoken]
+    )
+
+    ########################################################################################################
+    COMMENT('''
+    Issue SYS tokens to alice 
+    ''')
+
+    token_contract.push_action(
+        "issue",
+        {
+            "to": alice,
+            "quantity": "10000.0000 SYS",
+            "memo": "issued tokens to alice"
+        },
+        [eosio]
+    )
+
+    COMMENT('''
+    Issue SYS tokens to bob 
+    ''')
+
+    token_contract.push_action(
+        "issue",
+        {
+            "to": bob,
+            "quantity": "10000.0000 SYS",
+            "memo": "issued tokens to bob"
+        },
+        [eosio]
+    )
+
+    ########################################################################################################
+    COMMENT('''
+    Issue QUI tokens to crowdsaler 
+    ''')
+
+    token_contract.push_action(
+        "issue",
+        {
+            "to": crowdsaler,
+            "quantity": "10000.0000 QUI",
+            "memo": "issued tokens to alice"
+        },
+        [crowdsaler]
+    )
+
+    ########################################################################################################
+    # COMMENT('''
+    # Create QUILL tokens 
+    # ''')
+
+    # token_contract.push_action(
+    #     "create",
+    #     {
+    #         "issuer": issuer,
+    #         "maximum_supply": "1000000000.0000 QUILL"
+    #     },
+    #     [eosiotoken]
+    # )
+
+    ########################################################################################################
+    COMMENT('''
+    Initialize the crowdsaler
+    ''')
+
+    contract.push_action(
+        "init",
+        {
+            "issuer": crowdsaler,
+            "start": "2019-02-01T00:00:00",
+            "finish": "2020-04-20T00:00:00"
+        },
+        [crowdsaler]
+    )
+
+    ########################################################################################################
+    COMMENT('''
+    Invest in the crowdsaler 
+    ''')
+
+    # set eosio.code permission to the contract
+    crowdsaler.set_account_permission(
+        Permission.ACTIVE,
+        {
+            "threshold": 1,
+            "keys": [
+                {
+                    "key": crowdsaler.active(),
+                    "weight": 1
+                }
+            ],
+            "accounts":
+            [
+                {
+                    "permission":
+                        {
+                            "actor": crowdsaler,
+                            "permission": "eosio.code"
+                        },
+                    "weight": 1
+                }
+            ]
+        },
+        Permission.OWNER,
+        (crowdsaler, Permission.OWNER)
+    )
+
+    # transfer EOS tokens from alice to the host (contract) accounts
+    eosiotoken.push_action(
+        "transfer",
+        {
+            "from": alice,
+            "to": crowdsaler,
+            "quantity": "2500.0000 SYS",
+            "memo": "Invested 25 SYS in crowdsaler"
+        },
+        permission=(alice, Permission.ACTIVE)
+    )
+
+    # transfer EOS tokens from bob to the host (contract) accounts
+    eosiotoken.push_action(
+        "transfer",
+        {
+            "from": bob,
+            "to": crowdsaler,
+            "quantity": "2500.0000 SYS",
+            "memo": "Invested 25 SYS in crowdsaler"
+        },
+        permission=(bob, Permission.ACTIVE)
+    )
+
+
+
+    ########################################################################################################
+    COMMENT('''
+    Check table of the crowdsaler contract 
+    ''')
+
+    crowdsaler.table("deposit", crowdsaler)
+
+    stop()
+
+
+if __name__ == "__main__":
+    test()
